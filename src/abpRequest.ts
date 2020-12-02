@@ -54,7 +54,8 @@ type ResultWithData<T = any> = { data?: T;[key: string]: any };
  * 
  * @param options 透传给ahooksjs/use-request 的useRequest参数
 */
-export interface IUseRequestMethod {
+
+interface IUseRequestMethod {
     <
         R = any,
         P extends any[] = any,
@@ -95,15 +96,6 @@ export interface IUseRequestMethod {
         >,
         options: BasePaginatedOptions<U>,
     ): PaginatedResult<Item>;
-
-    get: IUseRequestMethod;
-    post: IUseRequestMethod;
-    delete: IUseRequestMethod;
-    put: IUseRequestMethod;
-    patch: IUseRequestMethod;
-    head: IUseRequestMethod;
-    options: IUseRequestMethod;
-    rpc: IUseRequestMethod;
 }
 
 const getUseRequestMethod = () => {
@@ -143,9 +135,13 @@ const getUseRequestMethod = () => {
                 }
                 showError(error);
             },
+
             ...restOpt,
         });
 
+        //请求出错使用初始数据
+        if (ret.error)
+            ret.data = options.initialData;
         return ret;
     }
 

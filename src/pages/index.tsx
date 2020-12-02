@@ -5,6 +5,7 @@ import styles from './index.less';
 
 export default () => {
   const model = useModel("userModel");
+  console.log("index: "+ model.data);
   return (
     <div>
       <h1 className={styles.title}>Page index</h1>
