@@ -312,6 +312,7 @@ const getRequestMethod = () => {
     // 后端返回格式 { success: boolean, data: any }
     // 按照项目具体情况修改该部分逻辑
     requestMethodInstance.use(async (ctx, next) => {
+        console.log("loading")
         await next();
         const { req, res } = ctx;
         // @ts-ignore

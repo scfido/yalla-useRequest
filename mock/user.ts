@@ -10,6 +10,10 @@ export default {
             }
         })
     },
+    "DELETE /users/:id":async (req: Request, res: Response) => {
+        await delay(1000);
+        res.status(500).end()
+    },
     "/error": async (req: Request, res: Response) => {
         await delay(3000);
         res.status(404).end()
