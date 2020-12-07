@@ -1,5 +1,5 @@
-import { request } from '@/abpRequest';
-import useRequest from '@ahooksjs/use-request';
+import { request, useRequest } from '@/abpRequest';
+// import useRequest from '@ahooksjs/use-request';
 import { useState } from 'react';
 
 export interface IUser {
@@ -28,32 +28,27 @@ export interface IUserModel {
 
 export default (): IUserModel => {
   const [editorVisible, setEditorVisible] = useState(false);
-  const { data: users, error, loading } = useRequest<IUser[]>('/api/users', {
-    initialData: [],
-    onError: (e: Error) => {
-      //console.log("外部onError: ", e.message);
-      //throw new Error("新错误")
-      //return true;
+  const { data: users, error, loading } = useRequest<IUser[]>('/api/users',
+    {
+      manual:false,
+      initialData: [],
+      onError: (e: Error) => {
+        //console.log("外部onError: ", e.message);
+        //throw new Error("新错误")
+        //return true;
+      },
     },
-  });
+  );
 
-  const getRequest = useRequest<IUser>('/api/users/:id', {
-    manual: true,
-  });
+  const getRequest = useRequest<IUser>('/api/users/:id');
   const { data: user, error: editorError, loading: editorLoading } = getRequest;
 
   const saveRequest = useRequest<IUser>(
-    { url: '/api/users/:id', method: 'POST' },
-    {
-      manual: true,
-    },
+    { url: '/api/users/:id', method: 'POST' }
   );
 
   const updateRequest = useRequest<IUser>(
     { url: '/api/users/:id', method: 'PUT' },
-    {
-      manual: true,
-    },
   );
 
   console.log('users: ' + users?.length);
@@ -71,8 +66,8 @@ export default (): IUserModel => {
     getRequest.run({ id });
   };
 
-  const remove = (id: string) => {
-    request.delete(`/users/${id}`);
+  const remove = async (id: string) => {
+    await request.delete(`/users/${id}`);
   };
 
   return {

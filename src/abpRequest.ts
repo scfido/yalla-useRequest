@@ -41,7 +41,132 @@ import {
     PaginatedParams,
     PaginatedResult,
 } from '@ahooksjs/use-request/lib/types';
-import { showError, setLoading, IRequestError } from './models/appModel';
+import { showError, IRequestError } from './models/appModel';
+
+type ResultWithData<T = any> = { data?: T;[key: string]: any };
+
+/** 
+ * 数据请求hook 
+ * 
+ * @param {string|object|function} service 请求数据的服务
+ *  - string 作为url发http请求
+ *  - object 作为`umi-request`参数
+ *  - function 调用该function
+ * 
+ * @param options 透传给ahooksjs/use-request 的useRequest参数
+*/
+export interface IUseRequestMethod {
+    <
+        R = any,
+        P extends any[] = any,
+        U = any,
+        UU extends U = any
+        >(
+        service: CombineService<R, P>,
+        options: OptionsWithFormat<R, P, U, UU>,
+    ): BaseResult<U, P>;
+
+    <R extends ResultWithData = any, P extends any[] = any>(
+        service: CombineService<R, P>,
+        options?: BaseOptions<R['data'], P>,
+    ): BaseResult<R['data'], P>;
+
+    <R extends LoadMoreFormatReturn = any, RR = any>(
+        service: CombineService<RR, LoadMoreParams<R>>,
+        options: LoadMoreOptionsWithFormat<R, RR>,
+    ): LoadMoreResult<R>;
+
+    <
+        R extends ResultWithData<LoadMoreFormatReturn | any> = any,
+        RR extends R = any
+        >(
+        service: CombineService<R, LoadMoreParams<R['data']>>,
+        options: LoadMoreOptions<RR['data']>,
+    ): LoadMoreResult<R['data']>;
+
+    <R = any, Item = any, U extends Item = any>(
+        service: CombineService<R, PaginatedParams>,
+        options: PaginatedOptionsWithFormat<R, Item, U>,
+    ): PaginatedResult<Item>;
+
+    <Item = any, U extends Item = any>(
+        service: CombineService<
+            ResultWithData<PaginatedFormatReturn<Item>>,
+            PaginatedParams
+        >,
+        options: BasePaginatedOptions<U>,
+    ): PaginatedResult<Item>;
+}
+
+const setUrlArgs = (service: any, args: any = {}) => {
+    // 参数中有url就直接使用
+    if (args.url)
+        return args.url;
+
+    // 将url中的":name" 替换成 args[name]的值
+    let { url }: { url: string } = service;
+    return url.replace(/:(\w+)/, (_, sub) => args[sub]);
+}
+
+const useRequest = function (service: any, options: any = {}) {
+    //  强制转换为object类型参数
+    let objService: any;
+    if (typeof service === 'string') {
+        objService = { url: service };
+    }
+
+    if (typeof service === 'object') {
+        objService = service;
+    }
+
+    const serviceFn = (args: any) => {
+        objService.url = setUrlArgs(objService, args);
+        return { ...objService, ...args };
+    }
+
+    // 默认为手动请求，因为大部分情况都是手动。
+    if (options.manual === undefined)
+        options.manual = true;
+
+    const { onError: userErrorHandle, ...restOpt } = options;
+
+    const ret = useUmiRequest(serviceFn, {
+        //   /*FRS*/ formatResult: res => res?.data /*FRE*/,
+
+        //如果 service 是 string 、 object 、 (...args)=> string|object
+        //会自动调用requestMethod
+        requestMethod: (requestOptions: any) => {
+            if (typeof requestOptions === 'string') {
+                return request(requestOptions);
+            }
+            if (typeof requestOptions === 'object') {
+                const { url, ...rest } = requestOptions;
+
+                return request(url, rest);
+            }
+            throw new Error('options参数错误');
+        },
+        onError: (error: IRequestError, p) => {
+            //1:返回ture：屏蔽错误，无错误通知
+            //2:返回false：抛出错误，有错误通知
+            //3:throw Error：抛出原有错误，显示新的错误通知
+            if (userErrorHandle) {
+                try {
+                    // 用户onError返回true表示已处理错误，不再显示错误通知。
+                    if (userErrorHandle(error, p))
+                        return;
+                } catch (newErr) {
+                    console.log(newErr);
+                    return;
+                }
+            }
+            console.log(error);
+        },
+        ...restOpt,
+    });
+
+    return ret;
+} as IUseRequestMethod
 
 export interface RequestConfig extends RequestOptionsInit {
     errorConfig?: {
@@ -113,7 +238,7 @@ const getRequest = (): RequestMethod => {
         if (error) {
             // 抛出错误到 errorHandler 中处理
             error.name = "BizError";
-            throw error;
+            // throw error;
         }
     });
 
@@ -125,7 +250,7 @@ const getRequest = (): RequestMethod => {
 
     requestInstance.interceptors.request.use(
         (url, options) => {
-            setLoading(url, true);
+            console.log(url);
             return { url, options };
         },
         { global: true }
@@ -133,7 +258,7 @@ const getRequest = (): RequestMethod => {
 
     requestInstance.interceptors.response.use(
         (response, options) => {
-            setLoading(response.url, false);
+            console.log(response.url);
             return response;
         },
         { global: true }
@@ -154,4 +279,4 @@ const getRequest = (): RequestMethod => {
 
 const request = getRequest()
 
-export { request, UseRequestProvider };
+export { request, useRequest, UseRequestProvider };
