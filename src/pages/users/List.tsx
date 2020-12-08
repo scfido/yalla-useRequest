@@ -36,8 +36,8 @@ export default () => {
         key="action"
         render={(text, user) => (
           <Space size="middle">
-            <a onClick={() => model.edit(user.id)}>Edit</a>
-            <a>Delete</a>
+            <a onClick={() => model.edit(user.id)}>编辑</a>
+            <a onClick={() => model.remove(user.id)}>删除</a>
           </Space>
         )}
       />

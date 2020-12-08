@@ -41,7 +41,6 @@ import {
     PaginatedParams,
     PaginatedResult,
 } from '@ahooksjs/use-request/lib/types';
-import { showError, IRequestError } from './models/appModel';
 
 type ResultWithData<T = any> = { data?: T;[key: string]: any };
 
@@ -98,6 +97,57 @@ export interface IUseRequestMethod {
     ): PaginatedResult<Item>;
 }
 
+export enum ErrorShowType {
+    SILENT = 0,
+    WARN = 1,
+    ERROR = 2,
+    NOTIFICATION = 4,
+    REDIRECT = 9,
+}
+
+export interface IRequestError extends Error {
+    code?: string;
+    message: string;
+    details?: string;
+    data?: any;
+    showType?: ErrorShowType;
+    traceId?: string;
+    request?: Context['req'];
+    response?: Context['res'];
+    [key: string]: any;
+}
+
+async function showError(error: IRequestError) {
+    console.log("内部异常处理", error.message);
+
+    const msg = error.data?.error?.message || error.message;
+    const status = error.response?.status;
+    switch (status) {
+        case 400:
+            message.error("请求数据有误，参考：" + msg);
+            break;
+
+        case 401:
+            message.error("用户需要登录，参考：" + msg);
+            break;
+
+        case 403:
+            message.error("访问被拒绝，参考：" + msg);
+            break;
+
+        case 404:
+            message.error("数据没有找到，参考：" + msg);
+            break;
+
+        case 500:
+            message.error("服务内部错误，参考：" + msg);
+            break;
+
+        default:
+            message.error(msg || '服务请求错误，请重试。');
+    }
+}
+
 const setUrlArgs = (service: any, args: any = {}) => {
     // 参数中有url就直接使用
     if (args.url)
@@ -131,9 +181,7 @@ const useRequest = function (service: any, options: any = {}) {
     const { onError: userErrorHandle, ...restOpt } = options;
 
     const ret = useUmiRequest(serviceFn, {
-        //   /*FRS*/ formatResult: res => res?.data /*FRE*/,
-
-        //如果 service 是 string 、 object 、 (...args)=> string|object
+          /*FRS*/ formatResult: res => res?.data /*FRE*/,
         //会自动调用requestMethod
         requestMethod: (requestOptions: any) => {
             if (typeof requestOptions === 'string') {
@@ -142,25 +190,23 @@ const useRequest = function (service: any, options: any = {}) {
             if (typeof requestOptions === 'object') {
                 const { url, ...rest } = requestOptions;
 
+                // 有用户处理错误的方法，就屏蔽内部handle，不显示request的错误通知
+                if (userErrorHandle)
+                    rest.errorHandler = undefined;
+
                 return request(url, rest);
             }
-            throw new Error('options参数错误');
+
+            throw new Error('options参数只能是string或object类型');
         },
         onError: (error: IRequestError, p) => {
             //1:返回ture：屏蔽错误，无错误通知
             //2:返回false：抛出错误，有错误通知
             //3:throw Error：抛出原有错误，显示新的错误通知
             if (userErrorHandle) {
-                try {
-                    // 用户onError返回true表示已处理错误，不再显示错误通知。
-                    if (userErrorHandle(error, p))
-                        return;
-                } catch (newErr) {
-                    console.log(newErr);
+                if (userErrorHandle(error, p))
                     return;
-                }
             }
-            console.log(error);
         },
         ...restOpt,
     });
@@ -181,97 +227,33 @@ export interface RequestConfig extends RequestOptionsInit {
 
 const DEFAULT_ERROR_PAGE = '/exception';
 
-let requestInstance: RequestMethod;
-const getRequest = (): RequestMethod => {
+let requestInstance: RequestMethod<true>;
+const getRequest = (): RequestMethod<true> => {
     if (requestInstance) {
         // request method 已经示例化
         return requestInstance;
     }
 
-    // runtime 配置可能应为依赖顺序的问题在模块初始化的时候无法获取，所以需要封装一层在异步调用后初始化相关方法
-    // 当用户的 app.ts 中依赖了该文件的情况下就该模块的初始化时间就会被提前，无法获取到运行时配置
-    const requestConfig: RequestConfig = plugin.applyPlugins({
-        key: 'request',
-        type: ApplyPluginsType.modify,
-        initialValue: {},
-    });
-
-    const errorAdaptor =
-        requestConfig.errorConfig?.adaptor || (resData => resData);
-
     requestInstance = extend({
-        errorHandler: (error) => {
-            //业务错误直接显示
-            switch (error.name) {
-                case "BizError":
-                    showError(error);
-                    break;
-
-                case "ResponseError":
-                    if (error.data && error.request) {
-                        const ctx: Context = {
-                            req: error.request,
-                            res: error.response,
-                        };
-                        const newError = errorAdaptor(error.data, ctx);
-                        showError(newError);
-                    }
-                    break;
-
-                default:
-                    showError(error);
-            }
+        getResponse: true,
+        errorHandler: async (error) => {
+            showError(error);
         },
-        ...requestConfig
     });
 
     // 中间件统一错误处理
-    // 后端返回格式 { success: boolean, data: any }
+    // 后端错误在头中添加“_AbpErrorFormat: true”
     // 按照项目具体情况修改该部分逻辑
     requestInstance.use(async (ctx, next) => {
         await next();
-        const { req, res } = ctx;
-        const { options } = req;
-        const { getResponse } = options;
-        const resData = getResponse ? res.data : res;
-        const error = errorAdaptor(resData, ctx);
-        if (error) {
-            // 抛出错误到 errorHandler 中处理
+
+        // 处理http status 200的错误信息。抛出到 errorHandler 中处理
+        const { res } = ctx;
+        if (res.response.headers.get("_AbpErrorFormat") === "true") {
+            const error = res.data;
             error.name = "BizError";
-            // throw error;
+            throw error;
         }
-    });
-
-    // Add user custom middlewares
-    const customMiddlewares = requestConfig.middlewares || [];
-    customMiddlewares.forEach(mw => {
-        requestInstance.use(mw);
-    });
-
-    requestInstance.interceptors.request.use(
-        (url, options) => {
-            console.log(url);
-            return { url, options };
-        },
-        { global: true }
-    );
-
-    requestInstance.interceptors.response.use(
-        (response, options) => {
-            console.log(response.url);
-            return response;
-        },
-        { global: true }
-    );
-
-    // Add user custom interceptors
-    const requestInterceptors = requestConfig.requestInterceptors || [];
-    const responseInterceptors = requestConfig.responseInterceptors || [];
-    requestInterceptors.map(ri => {
-        requestInstance.interceptors.request.use(ri);
-    });
-    responseInterceptors.map(ri => {
-        requestInstance.interceptors.response.use(ri);
     });
 
     return requestInstance;

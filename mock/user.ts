@@ -5,6 +5,7 @@ export default {
   '/api/users': async (req: Request, res: Response) => {
     await delay(3000);
     res
+      .status(400)
       .json([
         {
           id: '1',
@@ -35,7 +36,13 @@ export default {
   },
   'DELETE /api/users/:id': async (req: Request, res: Response) => {
     await delay(1000);
-    res.status(500).end();
+    res.setHeader("_AbpErrorFormat", "true");
+    res.status(404).json({
+      error: {
+        code: "APP:001",
+        message: "服务端错误"
+      }
+    });
   },
   '/api/error': async (req: Request, res: Response) => {
     await delay(3000);

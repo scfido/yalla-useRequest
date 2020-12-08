@@ -51,8 +51,6 @@ export default (): IUserModel => {
     { url: '/api/users/:id', method: 'PUT' },
   );
 
-  console.log('users: ' + users?.length);
-
   const hideEditor = () => {
     setEditorVisible(false);
   };
@@ -67,7 +65,7 @@ export default (): IUserModel => {
   };
 
   const remove = async (id: string) => {
-    await request.delete(`/users/${id}`);
+    await request.delete(`/api/users/${id}`);
   };
 
   return {
