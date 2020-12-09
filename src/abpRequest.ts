@@ -124,23 +124,23 @@ async function showError(error: IRequestError) {
     const status = error.response?.status;
     switch (status) {
         case 400:
-            message.error("请求数据有误，参考：" + msg);
+            message.error(`请求数据有误，参考：[${status}]${msg}`);
             break;
 
         case 401:
-            message.error("用户需要登录，参考：" + msg);
+            message.error(`用户需要登录，参考：[${status}]${msg}`);
             break;
 
         case 403:
-            message.error("访问被拒绝，参考：" + msg);
+            message.error(`访问被拒绝，参考：[${status}]${msg}`);
             break;
 
         case 404:
-            message.error("数据没有找到，参考：" + msg);
+            message.error(`数据没有找到，参考：[${status}]${msg}`);
             break;
 
         case 500:
-            message.error("服务内部错误，参考：" + msg);
+            message.error(`服务内部错误，参考：[${status}]${msg}`);
             break;
 
         default:
@@ -206,6 +206,7 @@ const useRequest = function (service: any, options: any = {}) {
             if (userErrorHandle) {
                 if (userErrorHandle(error, p))
                     return;
+                showError(error);   
             }
         },
         ...restOpt,

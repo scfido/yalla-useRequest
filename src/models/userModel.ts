@@ -30,12 +30,11 @@ export default (): IUserModel => {
   const [editorVisible, setEditorVisible] = useState(false);
   const { data: users, error, loading } = useRequest<IUser[]>('/api/users',
     {
-      manual:false,
+      manual: false,
       initialData: [],
       onError: (e: Error) => {
-        //console.log("外部onError: ", e.message);
-        //throw new Error("新错误")
-        //return true;
+        console.log("外部onError: ", e.message);
+        // return true;
       },
     },
   );
@@ -43,7 +42,7 @@ export default (): IUserModel => {
   const getRequest = useRequest<IUser>('/api/users/:id');
   const { data: user, error: editorError, loading: editorLoading } = getRequest;
 
-  const saveRequest = useRequest<IUser>(
+  const createRequest = useRequest<IUser>(
     { url: '/api/users/:id', method: 'POST' }
   );
 
@@ -68,10 +67,18 @@ export default (): IUserModel => {
     await request.delete(`/api/users/${id}`);
   };
 
+  const save = async (user: IUser, create: boolean) => {
+    if (create)
+      createRequest.run(user);
+    else
+      updateRequest.run(user);
+  };
+
+
   return {
     editorLoading: getRequest.loading,
-    editorSaving: updateRequest.loading || saveRequest.loading,
-    editorError: getRequest.error || updateRequest.error || saveRequest.error,
+    editorSaving: updateRequest.loading || createRequest.loading,
+    editorError: getRequest.error || updateRequest.error || createRequest.error,
     editorVisible,
     hideEditor,
     add,
