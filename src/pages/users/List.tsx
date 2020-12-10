@@ -1,7 +1,7 @@
 import { IUser, IUserModel } from '@/models/userModel';
 import React, { useReducer } from 'react';
 import { Button, Table, Tag, Space } from 'antd';
-import { useModel } from 'umi';
+import { Link, useModel } from 'umi';
 import { Spin } from 'antd';
 
 export default () => {
@@ -36,7 +36,7 @@ export default () => {
         key="action"
         render={(text, user) => (
           <Space size="middle">
-            <a onClick={() => model.edit(user.id)}>编辑</a>
+            <Link to={`/users/edit/${user.id}`} replace={true}>编辑</Link>
             <a onClick={() => model.remove(user.id)}>删除</a>
           </Space>
         )}

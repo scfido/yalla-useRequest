@@ -5,7 +5,7 @@ export default {
   '/api/users': async (req: Request, res: Response) => {
     await delay(3000);
     res
-      .status(400)
+      .status(200)
       .json([
         {
           id: '1',
@@ -34,6 +34,51 @@ export default {
       ])
       .end();
   },
+
+  '/api/users/:id': async (req: Request, res: Response) => {
+    await delay(1000);
+    res
+      .status(200)
+      .json(
+        {
+          id: req.url,
+          firstName: 'John',
+          lastName: 'Brown',
+          age: 32,
+          address: 'New York No. 1 Lake Park',
+          tags: ['nice', 'developer'],
+        })
+      .end();
+  },
+
+  'POST /api/users/:id': async (req: Request, res: Response) => {
+    await delay(1000);
+    res
+      .status(200)
+      .json({
+        id: req.url,
+        firstName: 'John',
+        lastName: 'Brown',
+        age: 32,
+        address: 'New York No. 1 Lake Park',
+        tags: ['nice', 'developer'],
+      });
+  },
+
+  'PUT /api/users/:id': async (req: Request, res: Response) => {
+    await delay(1000);
+    res
+      .status(200)
+      .json({
+        id: req.url,
+        firstName: 'John',
+        lastName: 'Brown',
+        age: 32,
+        address: 'New York No. 1 Lake Park',
+        tags: ['nice', 'developer'],
+      });
+  },
+
   'DELETE /api/users/:id': async (req: Request, res: Response) => {
     await delay(1000);
     res.setHeader("_AbpErrorFormat", "true");

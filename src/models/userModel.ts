@@ -14,12 +14,11 @@ export interface IUser {
 export interface IUserModel {
   editorLoading: boolean;
   editorSaving: boolean;
-  editorVisible: boolean;
   editorError?: Error;
-  hideEditor(): void;
 
-  add(): void;
-  edit(id: string): void;
+  fetch(id: string): Promise<IUser>;
+  create(data: IUser): Promise<boolean>;
+  update(id: string, data: IUser): Promise<boolean>;
   remove(id: string): void;
   users?: IUser[];
   error?: Error;
@@ -27,51 +26,44 @@ export interface IUserModel {
 }
 
 export default (): IUserModel => {
-  const [editorVisible, setEditorVisible] = useState(false);
-  const { data: users, error, loading } = useRequest<IUser[]>('/api/users',
+  // 加载列表
+  const { data: users, error, loading } = useRequest('/api/users',
     {
       manual: false,
       initialData: [],
       onError: (e: Error) => {
-        console.log("外部onError: ", e.message);
-        // return true;
+        // return true; //不显示错误通知
       },
     },
   );
 
-  const getRequest = useRequest<IUser>('/api/users/:id');
-  const { data: user, error: editorError, loading: editorLoading } = getRequest;
+  // 获取编辑数据
+  const getRequest = useRequest('/api/users/:id', { onError: () => true });
 
-  const createRequest = useRequest<IUser>(
-    { url: '/api/users/:id', method: 'POST' }
+  // 创建
+  const createRequest = useRequest(
+    { url: '/api/users/:id', method: 'POST' }, { onError: () => true }
   );
 
-  const updateRequest = useRequest<IUser>(
-    { url: '/api/users/:id', method: 'PUT' },
+  // 更新
+  const updateRequest = useRequest(
+    { url: '/api/users/:id', method: 'PUT' }, { onError: () => true }
   );
 
-  const hideEditor = () => {
-    setEditorVisible(false);
-  };
-
-  const add = () => {
-    setEditorVisible(true);
-  };
-
-  const edit = (id: string) => {
-    setEditorVisible(true);
-    getRequest.run({ id });
+  const fetch = async (id: string) => {
+    return getRequest.run({ id });
   };
 
   const remove = async (id: string) => {
     await request.delete(`/api/users/${id}`);
   };
 
-  const save = async (user: IUser, create: boolean) => {
-    if (create)
-      createRequest.run(user);
-    else
-      updateRequest.run(user);
+  const create = async (data: IUser) => {
+    return createRequest.run({ data });
+  };
+
+  const update = async (id: string, data: IUser) => {
+    return updateRequest.run({ id, data });
   };
 
 
@@ -79,10 +71,9 @@ export default (): IUserModel => {
     editorLoading: getRequest.loading,
     editorSaving: updateRequest.loading || createRequest.loading,
     editorError: getRequest.error || updateRequest.error || createRequest.error,
-    editorVisible,
-    hideEditor,
-    add,
-    edit,
+    fetch,
+    create,
+    update,
     remove,
     users,
     error,
