@@ -1,5 +1,5 @@
 import { request, useRequest } from '@/abpRequest';
-// import useRequest from '@ahooksjs/use-request';
+import { history } from 'umi';
 import { useState } from 'react';
 
 export interface IUser {
@@ -12,6 +12,10 @@ export interface IUser {
 }
 
 export interface IUserModel {
+  loading: boolean;
+  users?: IUser[];
+  error?: Error;
+
   editorLoading: boolean;
   editorSaving: boolean;
   editorError?: Error;
@@ -20,63 +24,78 @@ export interface IUserModel {
   create(data: IUser): Promise<boolean>;
   update(id: string, data: IUser): Promise<boolean>;
   remove(id: string): void;
-  users?: IUser[];
-  error?: Error;
-  loading: boolean;
+
+  goHome(): void;
 }
 
 export default (): IUserModel => {
+
   // 加载列表
-  const { data: users, error, loading } = useRequest('/api/users',
+  const fetchList = useRequest('/api/users',
     {
       manual: false,
       initialData: [],
-      onError: (e: Error) => {
-        // return true; //不显示错误通知
-      },
+      enableErrorNotification: true,
     },
   );
 
-  // 获取编辑数据
-  const getRequest = useRequest('/api/users/:id', { onError: () => true });
+  // 获取单个数据
+  const fetchRequest = useRequest('/api/users/:id');
 
   // 创建
   const createRequest = useRequest(
-    { url: '/api/users/:id', method: 'POST' }, { onError: () => true }
+    { url: '/api/users/:id', method: 'POST' }
   );
 
   // 更新
   const updateRequest = useRequest(
-    { url: '/api/users/:id', method: 'PUT' }, { onError: () => true }
+    { url: '/api/users/:id', method: 'PUT' }
   );
 
   const fetch = async (id: string) => {
-    return getRequest.run({ id });
+    return fetchRequest.run({ id });
   };
 
   const remove = async (id: string) => {
+    // 删除操作业务简单，就直接使用request发起请求
     await request.delete(`/api/users/${id}`);
+    await fetchList.refresh();
+
+    return true;
   };
 
   const create = async (data: IUser) => {
-    return createRequest.run({ data });
+    await createRequest.run({ data });
+    await fetchList.refresh();
+
+    return true;
   };
 
   const update = async (id: string, data: IUser) => {
-    return updateRequest.run({ id, data });
+    await updateRequest.run({ id, data });
+    await fetchList.refresh();
+
+    return true;
   };
 
+  const goHome = (replace = true) => {
+    history.replace("/users");
+  }
 
   return {
-    editorLoading: getRequest.loading,
+    loading: fetchList.loading,
+    users: fetchList.data,
+    error: fetchList.error,
+
+    editorLoading: fetchRequest.loading,
     editorSaving: updateRequest.loading || createRequest.loading,
-    editorError: getRequest.error || updateRequest.error || createRequest.error,
+    editorError: fetchRequest.error || updateRequest.error || createRequest.error,
+
     fetch,
     create,
     update,
     remove,
-    users,
-    error,
-    loading,
+
+    goHome,
   };
 };

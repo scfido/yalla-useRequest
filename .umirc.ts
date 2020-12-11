@@ -5,7 +5,8 @@ export default defineConfig({
     type: 'none',
   },
   routes: [
-    { exact: true,  path: '/users/:editType(|create|edit)?/:id?', component: '@/pages/users' },
+    { exact: true,  path: '/users/:action(create|edit)/:id?', component: '@/pages/users' },
+    { exact: true,  path: '/users', component: '@/pages/users' },
     { component: '@/pages/404' },
   ],
 });

@@ -3,7 +3,7 @@ import delay from 'delay';
 
 export default {
   '/api/users': async (req: Request, res: Response) => {
-    await delay(3000);
+    await delay(1000);
     res
       .status(200)
       .json([
@@ -82,7 +82,7 @@ export default {
   'DELETE /api/users/:id': async (req: Request, res: Response) => {
     await delay(1000);
     res.setHeader("_AbpErrorFormat", "true");
-    res.status(404).json({
+    res.status(200).json({
       error: {
         code: "APP:001",
         message: "服务端错误"

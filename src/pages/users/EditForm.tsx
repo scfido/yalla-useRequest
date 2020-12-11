@@ -14,86 +14,80 @@ const messageLayout = {
   wrapperCol: { span: 24 },
 };
 
-enum EditTypes {
+enum Actions {
   create = "create",
   edit = "edit"
 }
 
 interface IUrlParams {
-  editType: EditTypes,
+  action: Actions,
   id: string,
 }
 
 export default () => {
-  const { fetch, create, update, remove, error, loading, saving } = useModel(
-    'userModel',
-    ({
-      editorLoading,
-      editorSaving,
-      editorError,
-      fetch,
-      create,
-      update,
-      remove,
-    }) => ({
-      loading: editorLoading,
-      saving: editorSaving,
-      error: editorError,
-      fetch,
-      create,
-      update,
-      remove,
+  const model = useModel('userModel',
+    //明确要使用model的值可以优化性能
+    m => ({
+      loading: m.editorLoading,
+      saving: m.editorSaving,
+      error: m.editorError,
+      fetch: m.fetch,
+      create: m.create,
+      update: m.update,
+      remove: m.remove,
+      goHome: m.goHome,
     }),
   );
 
-  const { editType, id }: IUrlParams = useParams();
+  const [form] = Form.useForm<IUser>();
+  const { action: action, id }: IUrlParams = useParams();
+
   useEffect(() => {
     if (id?.length > 0) {
-      fetch(id)
+      model.fetch(id)
         .then((user: IUser) => form.setFieldsValue(user))
     }
   }, [id])
 
-  const [form] = Form.useForm<IUser>();
 
   const handleCancel = () => {
     form.resetFields();
-    history.replace("/users")
+    model.goHome()
   };
 
   const handleFinish = (data: IUser) => {
-    const isUpdate = editType === EditTypes.edit;
+    const isUpdate = action === Actions.edit;
     if (isUpdate)
-      update(id, data)
+      model.update(id, data)
         .then(() => {
           form.resetFields();
-          history.replace("/users")
+          model.goHome()
         });
     else
-      create(data)
+      model.create(data)
         .then(() => {
           form.resetFields();
-          history.replace("/users")
+          model.goHome();
         });
   };
 
   return (
     <Modal
-      title={editType == EditTypes.edit ? "编辑用户" : "创建用户"}
-      visible={editType === EditTypes.create || editType === EditTypes.edit}
+      title={action == Actions.edit ? "编辑用户" : "创建用户"}
+      visible={action === Actions.create || action === Actions.edit}
       onOk={() => form.submit()}
       onCancel={handleCancel}
       okText="保存"
       cancelText="取消"
       okButtonProps={{
-        disabled: loading && error !== undefined,
-        loading: saving,
+        disabled: model.loading || model.error != undefined,
+        loading: model.saving,
       }}
     >
-      <Spin spinning={loading} >
+      <Spin spinning={model.loading} >
         <Form {...layout} form={form} name="users" onFinish={handleFinish}>
-          {error && <Form.Item {...messageLayout}>
-            <Alert type="error" message={`请求错误，参考：${error?.message}`}></Alert>
+          {model.error && <Form.Item {...messageLayout}>
+            <Alert type="error" message={`请求错误，参考：${model.error?.message}`}></Alert>
           </Form.Item>}
           <Form.Item name="firstName" label="姓" rules={[{ required: true }]}>
             <Input />

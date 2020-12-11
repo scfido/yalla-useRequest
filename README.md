@@ -26,23 +26,24 @@ const { data: users, error, loading } = useRequest<IUser[]>('/api/users',
     {
       manual:false,
       initialData: [],  //初始数据
+      enableErrorNotification: true,
     },
   );
 ```
 
-自行处理错误信息，并控制是否弹出错误通知
+自行处理错误信息，不弹出错误通知
 ```ts
 const { data: users, error, loading } = useRequest<IUser[]>('/api/users',
     {
       manual:false,
       initialData: [],  //初始数据
       onError: (e: Error) => {
-        console.log("外部捕获错误onError: ", e.message);
-        return true;    //返回ture表示已处理，不在显示通知。
+        console.log("用户捕获错误onError: ", e.message);
       },
     },
   );
 ```
+
 ## 手动获取数据
 
 `manual`选项被设置为默认为`true`手动获取数据，在调用`run`函数时传入的参数可以自动替换url`:id`变量。

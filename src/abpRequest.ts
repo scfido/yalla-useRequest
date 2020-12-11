@@ -62,17 +62,17 @@ export interface IUseRequestMethod {
         UU extends U = any
         >(
         service: CombineService<R, P>,
-        options: OptionsWithFormat<R, P, U, UU>,
+        options: OptionsWithFormat<R, P, U, UU> & { enableErrorNotification?: boolean },
     ): BaseResult<U, P>;
 
     <R extends ResultWithData = any, P extends any[] = any>(
         service: CombineService<R, P>,
-        options?: BaseOptions<R['data'], P>,
+        options?: BaseOptions<R['data'], P> & { enableErrorNotification?: boolean },
     ): BaseResult<R['data'], P>;
 
     <R extends LoadMoreFormatReturn = any, RR = any>(
         service: CombineService<RR, LoadMoreParams<R>>,
-        options: LoadMoreOptionsWithFormat<R, RR>,
+        options: LoadMoreOptionsWithFormat<R, RR> & { enableErrorNotification?: boolean },
     ): LoadMoreResult<R>;
 
     <
@@ -80,12 +80,12 @@ export interface IUseRequestMethod {
         RR extends R = any
         >(
         service: CombineService<R, LoadMoreParams<R['data']>>,
-        options: LoadMoreOptions<RR['data']>,
+        options: LoadMoreOptions<RR['data']> & { enableErrorNotification?: boolean },
     ): LoadMoreResult<R['data']>;
 
     <R = any, Item = any, U extends Item = any>(
         service: CombineService<R, PaginatedParams>,
-        options: PaginatedOptionsWithFormat<R, Item, U>,
+        options: PaginatedOptionsWithFormat<R, Item, U> & { enableErrorNotification?: boolean },
     ): PaginatedResult<Item>;
 
     <Item = any, U extends Item = any>(
@@ -93,7 +93,7 @@ export interface IUseRequestMethod {
             ResultWithData<PaginatedFormatReturn<Item>>,
             PaginatedParams
         >,
-        options: BasePaginatedOptions<U>,
+        options: BasePaginatedOptions<U> & { enableErrorNotification?: boolean },
     ): PaginatedResult<Item>;
 }
 
@@ -118,9 +118,13 @@ export interface IRequestError extends Error {
 }
 
 async function showError(error: IRequestError) {
-    console.log("内部异常处理", error.message);
 
-    const msg = error.data?.error?.message || error.message;
+    if (error.name === "BizError") {
+        message.error(error.message);
+        return;
+    }
+
+    const msg = error.message;
     const status = error.response?.status;
     switch (status) {
         case 400:
@@ -182,7 +186,6 @@ const useRequest = function (service: any, options: any = {}) {
 
     const ret = useUmiRequest(serviceFn, {
           /*FRS*/ formatResult: res => res?.data /*FRE*/,
-        //会自动调用requestMethod
         requestMethod: (requestOptions: any) => {
             if (typeof requestOptions === 'string') {
                 return request(requestOptions);
@@ -190,8 +193,8 @@ const useRequest = function (service: any, options: any = {}) {
             if (typeof requestOptions === 'object') {
                 const { url, ...rest } = requestOptions;
 
-                // 有用户处理错误的方法，就屏蔽内部handle，不显示request的错误通知
-                if (userErrorHandle)
+                // 有用户处理错误的方法或者禁用通知，就屏蔽内部handle
+                if (userErrorHandle || !options.enableErrorNotification)
                     rest.errorHandler = undefined;
 
                 return request(url, rest);
@@ -200,14 +203,11 @@ const useRequest = function (service: any, options: any = {}) {
             throw new Error('options参数只能是string或object类型');
         },
         onError: (error: IRequestError, p) => {
-            //1:返回ture：屏蔽错误，无错误通知
-            //2:返回false：抛出错误，有错误通知
-            //3:throw Error：抛出原有错误，显示新的错误通知
-            if (userErrorHandle) {
-                if (userErrorHandle(error, p))
-                    return;
-                showError(error);   
-            }
+            if (userErrorHandle)
+                userErrorHandle(error, p)
+
+            // if (options.enableErrorNotification === true)
+            //     showError(error);
         },
         ...restOpt,
     });
@@ -239,6 +239,7 @@ const getRequest = (): RequestMethod<true> => {
         getResponse: true,
         errorHandler: async (error) => {
             showError(error);
+            throw error;
         },
     });
 
@@ -249,10 +250,13 @@ const getRequest = (): RequestMethod<true> => {
         await next();
 
         // 处理http status 200的错误信息。抛出到 errorHandler 中处理
-        const { res } = ctx;
+        const { req, res } = ctx;
         if (res.response.headers.get("_AbpErrorFormat") === "true") {
-            const error = res.data;
+            const { error }: { error: IRequestError } = res.data;
             error.name = "BizError";
+            error.request = req;
+            error.response = res;
+
             throw error;
         }
     });
